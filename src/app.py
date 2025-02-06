@@ -1,5 +1,6 @@
 import logging
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
 from pathlib import Path
 import re
 import requests
@@ -106,6 +107,12 @@ def crawl_and_process(topic_url: str, stop_words: list[str]):
         top_indices = doc_tfidf.argsort()[-top_n:][::-1]
         for idx in top_indices:
             print(f"{feature_names[idx]}: {doc_tfidf[idx]:.4f}")
+
+    km = KMeans(n_clusters=5, random_state=0).fit(tfidf_array)
+    for c in range(5):
+        docs_in_clust = [i for i, clust in enumerate(km.labels_)]
+        print(f"cluster {c}: {docs_in_clust}")
+
 
 
 # Step 6: Apply TF-IDF to the filtered tokens
