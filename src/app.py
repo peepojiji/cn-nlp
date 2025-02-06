@@ -1,4 +1,6 @@
 import logging
+from collections import defaultdict
+import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from pathlib import Path
@@ -9,7 +11,8 @@ import jieba
 from urllib.parse import urljoin
 
 jieba.setLogLevel(logging.INFO)
-MAX_ARTICLES_PER_SITE = 30
+MAX_ARTICLES_PER_SITE = 180
+KMEANS_NUM_OF_CLUSTERS = 5
 
 # Step 1: Fetch the main page and extract article links
 def get_article_links(topic_url):
@@ -108,11 +111,23 @@ def crawl_and_process(topic_url: str, stop_words: list[str]):
         for idx in top_indices:
             print(f"{feature_names[idx]}: {doc_tfidf[idx]:.4f}")
 
-    km = KMeans(n_clusters=5, random_state=0).fit(tfidf_array)
-    for c in range(5):
-        docs_in_clust = [i for i, clust in enumerate(km.labels_)]
-        print(f"cluster {c}: {docs_in_clust}")
+    km = KMeans(n_clusters=KMEANS_NUM_OF_CLUSTERS, random_state=42).fit(tfidf_array)
+    clusters = defaultdict(list)
+    for i, label in enumerate(km.labels_):
+        clusters[label].append(f"article {i + 1}: {article_links[i]}")
 
+    for cluster_id, articles in clusters.items():
+        print(f"\nCluster {cluster_id} articles:\n{'\n'.join(articles)}\n")
+        print(f"Top terms for cluster {cluster_id}:")
+        # Get the indices of documents in this cluster
+        cluster_indices = np.where(km.labels_ == cluster_id)[0]
+        # Calculate the mean TF-IDF scores for terms in this cluster
+        cluster_tfidf = tfidf_array[cluster_indices].mean(axis=0)
+        # Get the indices of the top N terms with the highest mean TF-IDF scores
+        top_term_indices = cluster_tfidf.argsort()[-top_n:][::-1]
+        # Print the top terms and their mean TF-IDF scores
+        for idx in top_term_indices:
+            print(f"{feature_names[idx]}: {cluster_tfidf[idx]:.4f}")
 
 
 # Step 6: Apply TF-IDF to the filtered tokens
